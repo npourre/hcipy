@@ -1,8 +1,9 @@
 from .mode_basis import ModeBasis
+from ..field import evaluate_supersampled
 import numpy as np
 from scipy.sparse import csr_matrix
 
-def make_gaussian_pokes(grid, mu, sigma, cutoff=5):
+def make_gaussian_pokes(grid, mu, sigma, cutoff=5, oversampling=None):
 	'''Make a basis of Gaussians.
 
 	Parameters
@@ -18,6 +19,8 @@ def make_gaussian_pokes(grid, mu, sigma, cutoff=5):
 		The factor of sigma beyond which the Gaussian will be set to zero. The ModeBasis will
 		be sparse to reduce memory usage. If the cutoff is None, there will be no cutoff, and
 		the returned ModeBasis will be dense.
+	oversampling : integer or None
+		The oversamping factor when creating the Gaussian. If None the Gaussian will be evaluated at grid resolution.
 
 	Returns
 	-------
@@ -27,21 +30,26 @@ def make_gaussian_pokes(grid, mu, sigma, cutoff=5):
 	sigma = np.ones(mu.size) * sigma
 
 	def poke(m, s):
-		if grid.is_('cartesian'):
-			r2 = (grid.x - m[0])**2 + (grid.y - m[1])**2
-		else:
-			r2 = grid.shifted(-m).as_('polar').r**2
+		def eval_func(func_grid):
+			if func_grid.is_('cartesian'):
+				r2 = (func_grid.x - m[0])**2 + (func_grid.y - m[1])**2
+			else:
+				r2 = func_grid.shifted(-m).as_('polar').r**2
 
-		res = np.exp(-0.5 * r2 / s**2)
+			res = np.exp(-0.5 * r2 / s**2)
 
-		if cutoff is not None:
-			res -= np.exp(-0.5 * cutoff**2)
-			res[r2 > (cutoff * s)**2] = 0
+			if cutoff is not None:
+				res -= np.exp(-0.5 * cutoff**2)
+				res[r2 > (cutoff * s)**2] = 0
 
-			res = csr_matrix(res)
-			res.eliminate_zeros()
+				res = csr_matrix(res)
+				res.eliminate_zeros()
 
-		return res
-
-	pokes = [poke(m, s) for m, s in zip(mu.points, sigma)]
+			return res
+		return eval_func
+		
+	if oversampling is not None:
+		pokes = [evaluate_supersampled(poke(m, s), grid, oversampling) for m, s in zip(mu.points, sigma)]
+	else:
+		pokes = [poke(m, s)(grid) for m, s in zip(mu.points, sigma)]
 	return ModeBasis(pokes, grid)
