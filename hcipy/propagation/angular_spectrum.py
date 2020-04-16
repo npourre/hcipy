@@ -52,7 +52,8 @@ class AngularSpectrumPropagator(AgnosticOpticalElement):
 		k = 2 * np.pi / wavelength * self.evaluate_parameter(self.refractive_index, input_grid, output_grid, wavelength)
 		L_max = np.max(input_grid.dims * input_grid.delta)
 
-		if np.any(input_grid.delta < wavelength * self.distance / L_max):
+		if False and np.any(input_grid.delta < wavelength * self.distance / L_max):
+			print("Use impulse response")
 			enlarged_input_grid = make_pupil_grid(2 * input_grid.dims, 2 * input_grid.delta * (input_grid.dims - 1))
 			fft_up_scale = FastFourierTransform(enlarged_input_grid)
 
@@ -66,6 +67,7 @@ class AngularSpectrumPropagator(AgnosticOpticalElement):
 
 			instance_data.transfer_function = fft_up_scale.forward(impulse_response)
 		else:
+			print("Use transfer function")
 			def transfer_function_generator(grid):
 				k_squared = grid.as_('polar').r**2
 				k_z = np.sqrt(k**2 - k_squared + 0j)

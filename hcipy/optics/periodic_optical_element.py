@@ -1,7 +1,11 @@
 import numpy as np
 from .optical_element import OpticalElement
-from ..field import CartesianGrid, UnstructuredCoords
+from .apodization import SurfaceApodizer
+from ..field import Field, CartesianGrid, UnstructuredCoords
+from ..plotting import imshow_field
 
+
+from matplotlib import pyplot as plt
 class PeriodicOpticalElement(OpticalElement):
 	def __init__(self, input_grid, pitch, apodization, orientation=0, even_grid=False):
 		'''An even asphere micro-lens array.
@@ -30,7 +34,11 @@ class PeriodicOpticalElement(OpticalElement):
 			yf = (np.fmod(abs(self.input_grid.y) + pitch / 2, pitch) - pitch / 2) * np.sign(self.input_grid.y)
 
 		periodic_grid = CartesianGrid(UnstructuredCoords((xf, yf)))
-		self.apodization = apodization(periodic_grid)
+		evaluated_apod = Field(apodization(periodic_grid), input_grid)
+		self.apodization = SurfaceApodizer(evaluated_apod, 1.5)
+
+		imshow_field(evaluated_apod)
+		plt.show()
 
 	def forward(self, wavefront):
 		wf = wavefront.copy()

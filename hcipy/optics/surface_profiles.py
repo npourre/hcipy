@@ -53,13 +53,28 @@ def conical_surface_sag(radius_of_curvature, conic_constant=0):
 		This function can be evaluated on a grid to get the sag profile.
 	'''
 	def func(grid):
-		x = grid.x
-		y = grid.y
-		r = np.hypot(x, y)
-
+		if grid.is_('cartesian'):
+			if grid.is_separated:
+				if grid.ndim == 2:
+					#x, y = grid.separated_coords
+					#r = np.hypot(x, y)
+					r = grid.as_('polar').r
+				else:
+					r = grid.separated_coords
+			else:
+				if grid.ndim == 2:
+					x, y = grid.coords
+					r = np.hypot(x, y)
+				else:
+					r = x
+		else:
+			r = grid.r
 		curvature = 1 / radius_of_curvature
 		alpha = (1 + conic_constant) * curvature**2 * r**2
-		sag = r**2 / (radius_of_curvature * (1 + np.sqrt(1 - alpha)))
+		
+		mask = r < abs(radius_of_curvature)
+		sag = grid.zeros()
+		sag[mask] = r[mask]**2 / (radius_of_curvature * (1 + np.sqrt(1 - alpha[mask])))
 
 		return Field(sag, grid)
 
@@ -96,10 +111,27 @@ def even_aspheric_surface_sag(radius_of_curvature, conic_constant=0, aspheric_co
 		aspheric_coefficients = []
 
 	def func(grid):
-		x = grid.x
-		y = grid.y
+		'''
+		if grid.is_('cartesian'):
+			if grid.is_separated:
+				if grid.ndim == 2:
+					x, y = grid.separated_coords
+					r = np.hypot(x, y)
+				else:
+					r = grid.separated_coords[0]
+			else:
+				if grid.ndim == 2:
+					x, y = grid.coords
+					r = np.hypot(x, y)
+				else:
+					r = grid.coords[0]
+		else:
+			r = grid.r
+		'''
+		x, y = grid.coords
 		r = np.hypot(x, y)
-
+		#print(r.shape)
+		
 		# Start with a conic surface
 		curvature = 1 / radius_of_curvature
 		alpha = (1 + conic_constant) * curvature**2 * r**2
@@ -109,7 +141,7 @@ def even_aspheric_surface_sag(radius_of_curvature, conic_constant=0, aspheric_co
 		# Only use the even modes and start at 4, because 0 is piston and 2 is the conic surface
 		for ai, coef in enumerate(aspheric_coefficients):
 			power_index = 4 + ai * 2
-			sag += coef * r**power_index
+			sag += coef/1e-6**(power_index-1) * r**power_index
 		return Field(sag, grid)
 
 	return func
